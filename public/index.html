@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人民公社</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleSidebar()">
+                    ☰
+                </button>
+                <h1>🏠 人民公社</h1>
+            </div>
+            <div class="user-info" id="userInfo" style="display: none;">
+                <span class="nickname" id="userNickname"></span>
+                <button class="btn-grade-select" id="btnGradeSelect" onclick="showGradeSelectorModal()">选择年级</button>
+                <button class="btn-logout" onclick="logout()">退出</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 连接状态提示 -->
+    <div id="connectionStatus" class="connection-status" style="display: none;">
+        <div class="status-content">
+            <div class="status-icon">⚠️</div>
+            <div class="status-text">连接服务器失败</div>
+            <div class="status-desc">正在尝试重新连接...</div>
+            <button class="btn-refresh" onclick="location.reload()">立即刷新</button>
+        </div>
+    </div>
+
+    <!-- 登录/注册模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content auth-modal">
+            <h2>欢迎使用人民公社</h2>
+            <div class="auth-tabs">
+                <button class="tab-btn active" onclick="showTab('login')">登录</button>
+                <button class="tab-btn" onclick="showTab('register')">注册</button>
+            </div>
+            
+            <div id="loginForm" class="auth-form">
+                <input type="text" id="loginNickname" placeholder="请输入昵称" maxlength="20">
+                <button class="btn-primary" onclick="login()">登录</button>
+            </div>
+            
+            <div id="registerForm" class="auth-form" style="display: none;">
+                <input type="text" id="registerNickname" placeholder="请输入昵称（2-20个字符）" maxlength="20">
+                <button class="btn-primary" onclick="register()">注册</button>
+            </div>
+            
+            <div id="authMessage" class="message"></div>
+        </div>
+    </div>
+
+    <!-- 年级选择器 -->
+    <div id="gradeSelector" class="grade-selector" style="display: none;">
+        <div class="selector-content">
+            <h2>选择你的年级</h2>
+            <div id="gradeList" class="grade-list"></div>
+        </div>
+    </div>
+
+    <!-- 年级选择弹窗 -->
+    <div id="gradeSelectorModal" class="modal grade-modal">
+        <div class="modal-content grade-modal-content">
+            <div class="modal-header">
+                <h2>选择年级</h2>
+                <button class="modal-close" onclick="hideGradeSelectorModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="grade-selector-container">
+                    <!-- 学制选择 -->
+                    <div class="selector-section">
+                        <h3>学制</h3>
+                        <div class="level-options" id="levelOptions">
+                            <div class="level-option-card" data-level="小学" onclick="selectLevelInModal('小学')">
+                                <div class="option-icon">🎒</div>
+                                <div class="option-name">小学</div>
+                            </div>
+                            <div class="level-option-card" data-level="初中" onclick="selectLevelInModal('初中')">
+                                <div class="option-icon">📚</div>
+                                <div class="option-name">初中</div>
+                            </div>
+                            <div class="level-option-card" data-level="高中" onclick="selectLevelInModal('高中')">
+                                <div class="option-icon">🎓</div>
+                                <div class="option-name">高中</div>
+                            </div>
+                        </div>
+                    </div>
+                        
+                    <!-- 年级选择 -->
+                    <div class="selector-section">
+                        <h3>年级</h3>
+                        <div class="grade-options" id="gradeOptions">
+                            <!-- 动态生成年级选项 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="hideGradeSelectorModal()">取消</button>
+                <button class="btn-confirm" id="confirmGradeBtn" onclick="confirmGradeSelection()" disabled>确定</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主容器 -->
+    <div class="main-container" id="mainContainer" style="display: none;">
+        <!-- 遮罩层 -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        
+        <!-- 右键菜单 -->
+        <div id="contextMenu" class="context-menu" style="display: none;">
+            <div class="context-menu-item" onclick="handleContextMenuAction('quote')">
+                <span class="menu-icon">↩️</span>
+                <span>引用</span>
+            </div>
+        </div>
+        
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>学科</h3>
+            </div>
+            <div id="gradeSidebar" class="grade-sidebar">
+                <!-- 动态生成学科列表 -->
+            </div>
+        </aside>
+
+        <!-- 聊天区域 -->
+        <main class="chat-area">
+            <div id="welcomeView" class="welcome-view">
+                <div class="welcome-content">
+                    <h2>👋 欢迎来到学习讨论平台</h2>
+                    <p>请从左侧选择一个年级和学科开始讨论</p>
+                </div>
+            </div>
+
+            <div id="chatView" class="chat-view" style="display: none;">
+                <div class="chat-header">
+                    <h3 id="chatTitle">讨论区</h3>
+                    <span class="user-grade-info" id="userGradeInfo"></span>
+                    <span class="online-count">在线人数: <span id="onlineCount">0</span></span>
+                </div>
+                
+                <div id="messageList" class="message-list">
+                    <!-- 动态生成消息列表 -->
+                </div>
+                
+                <div class="message-input">
+                    <textarea id="messageInput" placeholder="输入消息... (按Enter发送，Shift+Enter换行)" rows="3"></textarea>
+                    <div class="input-actions">
+                        <!-- 隐藏的文件输入 -->
+                        <input type="file" id="imageInput" accept="image/*" capture="camera" style="display: none;" onchange="handleImageUpload(event)">
+                        <input type="file" id="fileInput" accept="*/*" style="display: none;" onchange="handleFileUpload(event)">
+                        
+                        <!-- 功能按钮 -->
+                        <div class="icon-buttons">
+                            <button class="btn-icon" onclick="document.getElementById('imageInput').click()" title="拍照/图片">
+                                📷
+                            </button>
+                            <button class="btn-icon" onclick="document.getElementById('fileInput').click()" title="上传文件">
+                                📎
+                            </button>
+                        </div>
+                        
+                        <!-- 发送按钮 - 横向排列 -->
+                        <div class="send-buttons">
+                            <button id="scrollToBottomBtn" class="btn-send" style="display: none;" onclick="scrollToBottom()" title="跳到底部">
+                                底部
+                            </button>
+                            <button class="btn-send" onclick="sendMessage()">发送</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        console.log('开始加载页面...');
+        window.addEventListener('error', function(e) {
+            console.error('页面错误:', e.error);
+        });
+    </script>
+    <script src="js/auth.js"></script>
+    <script>
+        console.log('auth.js 加载完成');
+    </script>
+    <script src="js/chat.js"></script>
+    <script>
+        console.log('chat.js 加载完成');
+    </script>
+    <script src="js/app.js"></script>
+    <script>
+        console.log('app.js 加载完成');
+    </script>
+</body>
+</html>

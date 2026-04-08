@@ -1,0 +1,206 @@
+/**
+ * SliderCaptcha - 滑块验证码样式
+ * 参考: https://gitee.com/LongbowEnterprise/SliderCaptcha
+ */
+
+.slider-captcha {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    margin: 15px auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.slider-captcha .captcha-container {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    background: #f5f5f5;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.slider-captcha .captcha-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.slider-captcha .captcha-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    color: #666;
+    font-size: 14px;
+}
+
+.slider-captcha .puzzle-piece {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background-size: 320px 160px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    z-index: 10;
+}
+
+.slider-captcha .puzzle-slot {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.3);
+    border: 2px dashed rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+}
+
+.slider-captcha .slider-bar {
+    position: relative;
+    width: 100%;
+    height: 40px;
+    margin-top: 10px;
+    background: #e8e8e8;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slider-captcha .slider-text {
+    position: absolute;
+    color: #999;
+    font-size: 14px;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.slider-captcha .slider-text.hidden {
+    opacity: 0;
+}
+
+.slider-captcha .slider-btn {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s;
+    z-index: 10;
+}
+
+.slider-captcha .slider-btn:hover {
+    background: #f0f0f0;
+}
+
+.slider-captcha .slider-btn:active {
+    cursor: grabbing;
+    background: #e0e0e0;
+}
+
+.slider-captcha .slider-btn-icon {
+    color: #666;
+    font-size: 16px;
+}
+
+.slider-captcha .slider-track {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #52c41a, #73d13d);
+    border-radius: 20px;
+    width: 0;
+    transition: width 0.1s;
+}
+
+.slider-captcha.success .slider-track {
+    background: linear-gradient(90deg, #52c41a, #73d13d);
+}
+
+.slider-captcha.success .slider-btn {
+    background: #52c41a;
+}
+
+.slider-captcha.success .slider-btn-icon {
+    color: #fff;
+}
+
+.slider-captcha.fail .slider-track {
+    background: linear-gradient(90deg, #ff4d4f, #ff7875);
+}
+
+.slider-captcha.fail .slider-btn {
+    background: #ff4d4f;
+}
+
+.slider-captcha.fail .slider-btn-icon {
+    color: #fff;
+}
+
+.slider-captcha .captcha-refresh {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #666;
+    transition: all 0.3s;
+    z-index: 20;
+}
+
+.slider-captcha .captcha-refresh:hover {
+    background: #fff;
+    transform: rotate(180deg);
+}
+
+.slider-captcha .captcha-message {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #666;
+    min-height: 20px;
+}
+
+.slider-captcha .captcha-message.success {
+    color: #52c41a;
+}
+
+.slider-captcha .captcha-message.fail {
+    color: #ff4d4f;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+    .slider-captcha {
+        max-width: 100%;
+    }
+    
+    .slider-captcha .captcha-container {
+        height: 140px;
+    }
+}

@@ -1,6 +1,8 @@
 // 用户认证模块
 
 let currentUser = null;
+let captchaInstance = null;
+let captchaVerified = false;
 
 // 检查登录状态
 async function checkAuth() {
@@ -94,6 +96,12 @@ async function register() {
         return;
     }
     
+    // 检查验证码是否通过
+    if (!captchaVerified || !captchaInstance || !captchaInstance.isVerified()) {
+        showMessage(messageEl, '请先完成滑块验证码验证', 'error');
+        return;
+    }
+    
     try {
         console.log('正在注册:', nickname);
         const response = await fetch('/api/register', {
@@ -119,10 +127,22 @@ async function register() {
             }, 1000);
         } else {
             showMessage(messageEl, data.message, 'error');
+            // 注册失败后重置验证码
+            if (captchaInstance) {
+                captchaInstance.reset();
+                captchaVerified = false;
+                document.getElementById('registerBtn').disabled = true;
+            }
         }
     } catch (error) {
         console.error('注册失败:', error);
         showMessage(messageEl, '注册失败，请稍后重试', 'error');
+        // 注册失败后重置验证码
+        if (captchaInstance) {
+            captchaInstance.reset();
+            captchaVerified = false;
+            document.getElementById('registerBtn').disabled = true;
+        }
     }
 }
 
@@ -214,6 +234,63 @@ function hideAuthModal() {
     document.getElementById('userNickname').textContent = currentUser.nickname;
 }
 
+// 初始化验证码
+function initCaptcha() {
+    // 如果已经初始化过，先销毁
+    if (captchaInstance) {
+        captchaInstance.reset();
+    }
+    
+    // 延迟初始化，确保DOM已渲染
+    setTimeout(() => {
+        const captchaContainer = document.getElementById('captchaContainer');
+        if (!captchaContainer) return;
+        
+        // 清空容器
+        captchaContainer.innerHTML = '<div id="sliderCaptcha"></div>';
+        
+        // 创建验证码实例
+        captchaInstance = new SliderCaptcha({
+            id: 'sliderCaptcha',
+            width: 280,
+            height: 140,
+            sliderL: 45,
+            offset: 5,
+            barText: '向右滑动完成验证',
+            successText: '验证成功',
+            failedText: '验证失败，请重试',
+            remoteUrl: '/api/captcha/verify',
+            onSuccess: function(trackData) {
+                console.log('验证码验证成功');
+                captchaVerified = true;
+                // 启用注册按钮
+                const registerBtn = document.getElementById('registerBtn');
+                if (registerBtn) {
+                    registerBtn.disabled = false;
+                }
+            },
+            onFail: function() {
+                console.log('验证码验证失败');
+                captchaVerified = false;
+                // 禁用注册按钮
+                const registerBtn = document.getElementById('registerBtn');
+                if (registerBtn) {
+                    registerBtn.disabled = true;
+                }
+            },
+            onRefresh: function() {
+                console.log('验证码已刷新');
+                captchaVerified = false;
+                // 禁用注册按钮
+                const registerBtn = document.getElementById('registerBtn');
+                if (registerBtn) {
+                    registerBtn.disabled = true;
+                }
+            }
+        });
+    }, 100);
+}
+
 // 切换登录/注册标签
 function showTab(tab) {
     const loginForm = document.getElementById('loginForm');
@@ -234,6 +311,8 @@ function showTab(tab) {
         loginForm.style.display = 'none';
         registerForm.style.display = 'flex';
         tabs[1].classList.add('active');
+        // 切换到注册标签时初始化验证码
+        initCaptcha();
     }
 }
 
@@ -378,5 +457,6 @@ window.authModule = {
     updateGradeButton,
     showAuthModal,
     hideAuthModal,
-    showMessage
+    showMessage,
+    initCaptcha
 };

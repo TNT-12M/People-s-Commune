@@ -374,6 +374,80 @@ wss.on('close', () => {
   clearInterval(interval);
 });
 
+// 验证码存储（简单的内存存储，生产环境建议使用Redis）
+const captchaStore = new Map();
+
+// 验证码验证API
+app.post('/api/captcha/verify', (req, res) => {
+  try {
+    const { track, offset, timestamp } = req.body;
+    
+    if (!track || !Array.isArray(track) || track.length < 2) {
+      return res.json({ success: false, message: '无效的验证数据' });
+    }
+    
+    // 验证滑动轨迹
+    // 1. 检查滑动时间
+    const startTime = track[0].t;
+    const endTime = track[track.length - 1].t;
+    const duration = endTime - startTime;
+    
+    // 滑动时间过短（小于500ms）可能是机器人
+    if (duration < 500) {
+      return res.json({ success: false, message: '滑动速度过快' });
+    }
+    
+    // 滑动时间过长（大于10秒）可能是人工但太慢
+    if (duration > 10000) {
+      return res.json({ success: false, message: '滑动速度过慢' });
+    }
+    
+    // 2. 检查滑动轨迹的平滑度
+    let isSmooth = true;
+    for (let i = 2; i < track.length; i++) {
+      const prev = track[i - 1];
+      const curr = track[i];
+      const prevPrev = track[i - 2];
+      
+      const speed1 = (prev.x - prevPrev.x) / (prev.t - prevPrev.t);
+      const speed2 = (curr.x - prev.x) / (curr.t - prev.t);
+      
+      // 速度变化过大可能是机器人
+      if (Math.abs(speed2 - speed1) > 2) {
+        isSmooth = false;
+        break;
+      }
+    }
+    
+    // 3. 检查偏移量
+    if (offset > 10) {
+      return res.json({ success: false, message: '验证位置偏差过大' });
+    }
+    
+    // 生成验证码token
+    const captchaToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    
+    // 存储验证结果（5分钟有效）
+    captchaStore.set(captchaToken, {
+      verified: true,
+      timestamp: Date.now()
+    });
+    
+    // 清理过期的验证码（超过5分钟）
+    const now = Date.now();
+    for (const [key, value] of captchaStore.entries()) {
+      if (now - value.timestamp > 5 * 60 * 1000) {
+        captchaStore.delete(key);
+      }
+    }
+    
+    res.json({ success: true, token: captchaToken });
+  } catch (error) {
+    console.error('验证码验证错误:', error);
+    res.json({ success: false, message: '验证失败' });
+  }
+});
+
 // API路由
 
 // 用户注册

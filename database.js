@@ -178,19 +178,16 @@ function createUser(nickname, avatar = null) {
 
 function getUserByNickname(nickname) {
   try {
-    const result = db.exec(`SELECT * FROM users WHERE nickname = '${nickname.replace(/'/g, "''")}'`);
-    if (result.length === 0 || result[0].values.length === 0) {
+    // 使用参数化查询避免SQL注入
+    const stmt = db.prepare('SELECT * FROM users WHERE nickname = ?');
+    const result = stmt.getAsObject({ 1: nickname });
+    stmt.free();
+    
+    if (!result) {
       return Promise.resolve(undefined);
     }
     
-    const columns = result[0].columns;
-    const values = result[0].values[0];
-    const row = {};
-    columns.forEach((col, idx) => {
-      row[col] = values[idx];
-    });
-    
-    return Promise.resolve(row);
+    return Promise.resolve(result);
   } catch (err) {
     return Promise.reject(err);
   }
@@ -198,19 +195,16 @@ function getUserByNickname(nickname) {
 
 function getUserById(id) {
   try {
-    const result = db.exec(`SELECT * FROM users WHERE id = ${id}`);
-    if (result.length === 0 || result[0].values.length === 0) {
+    // 使用参数化查询避免SQL注入
+    const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
+    const result = stmt.getAsObject({ 1: id });
+    stmt.free();
+    
+    if (!result) {
       return Promise.resolve(undefined);
     }
     
-    const columns = result[0].columns;
-    const values = result[0].values[0];
-    const row = {};
-    columns.forEach((col, idx) => {
-      row[col] = values[idx];
-    });
-    
-    return Promise.resolve(row);
+    return Promise.resolve(result);
   } catch (err) {
     return Promise.reject(err);
   }
@@ -276,7 +270,7 @@ function saveMessageWithQuote(userId, grade, subject, content, quoteMessage, lev
 
 function getMessages(grade, subject, limit = 50, offset = 0, level = '') {
   try {
-    let query;
+    let query, params = [];
     
     // 闲聊室的特殊处理：只按subject查询，不按level和grade过滤
     if (subject === '闲聊室') {
@@ -284,89 +278,93 @@ function getMessages(grade, subject, limit = 50, offset = 0, level = '') {
         SELECT m.id, m.user_id, m.grade, m.subject, m.content, m.quote_message, m.created_at, u.nickname 
         FROM messages m 
         JOIN users u ON m.user_id = u.id
-        WHERE m.subject = '${subject.replace(/'/g, "''")}'
+        WHERE m.subject = ?
         ORDER BY m.created_at DESC 
-        LIMIT ${limit} OFFSET ${offset}
+        LIMIT ? OFFSET ?
       `;
+      params = [subject, limit, offset];
     } else if (level) {
       // 新逻辑：按level和subject查询（打通年级屏障）
       query = `
         SELECT m.id, m.user_id, m.grade, m.subject, m.content, m.quote_message, m.created_at, u.nickname 
         FROM messages m 
         JOIN users u ON m.user_id = u.id
-        WHERE m.subject = '${subject.replace(/'/g, "''")}'
-          AND m.level = '${level.replace(/'/g, "''")}'
+        WHERE m.subject = ?
+          AND m.level = ?
         ORDER BY m.created_at DESC 
-        LIMIT ${limit} OFFSET ${offset}
+        LIMIT ? OFFSET ?
       `;
+      params = [subject, level, limit, offset];
     } else {
       // 没有level，只按subject查询（兼容旧逻辑）
       query = `
         SELECT m.id, m.user_id, m.grade, m.subject, m.content, m.quote_message, m.created_at, u.nickname 
         FROM messages m 
         JOIN users u ON m.user_id = u.id 
-        WHERE m.subject = '${subject.replace(/'/g, "''")}'
+        WHERE m.subject = ?
         ORDER BY m.created_at DESC 
-        LIMIT ${limit} OFFSET ${offset}
+        LIMIT ? OFFSET ?
       `;
+      params = [subject, limit, offset];
     }
     
     console.log('SQL查询:', query);
+    console.log('参数:', params);
     
-    const result = db.exec(query);
+    // 使用参数化查询避免SQL注入
+    const stmt = db.prepare(query);
+    const result = stmt.all(params);
+    stmt.free();
     
-    console.log('查询结果数量:', result.length > 0 ? result[0].values.length : 0);
-    if (result.length > 0 && result[0].values.length > 0) {
-      console.log('第一条消息示例:', result[0].values[0]);
+    console.log('查询结果数量:', result.length);
+    if (result.length > 0) {
+      console.log('第一条消息示例:', result[0]);
     }
     
-    if (result.length === 0 || result[0].values.length === 0) {
+    if (result.length === 0) {
       return Promise.resolve([]);
     }
     
-    const columns = result[0].columns;
-    console.log('数据库列名:', columns);
-    
-    const rows = result[0].values.map(values => {
-      const row = {};
-      columns.forEach((col, idx) => {
+    const rows = result.map(row => {
+      const newRow = {};
+      Object.keys(row).forEach(col => {
         // 将user_id转换为userId，保持前端一致
         if (col === 'user_id') {
-          row['userId'] = values[idx];
+          newRow['userId'] = row[col];
         } else if (col === 'created_at') {
           // 将created_at转换为createdAt
-          row['createdAt'] = values[idx];
-        } else if (col === 'quote_message' && values[idx]) {
+          newRow['createdAt'] = row[col];
+        } else if (col === 'quote_message' && row[col]) {
           // 解析引用信息JSON
           try {
-            row['quoteMessage'] = JSON.parse(values[idx]);
+            newRow['quoteMessage'] = JSON.parse(row[col]);
           } catch (e) {
             console.error('解析引用信息失败:', e);
-            row['quoteMessage'] = null;
+            newRow['quoteMessage'] = null;
           }
         } else if (col === 'content') {
           // 尝试解析content为JSON（可能包含imagePath等）
           try {
-            const contentData = JSON.parse(values[idx]);
+            const contentData = JSON.parse(row[col]);
             // 如果是对象，只复制非null的字段
             if (typeof contentData === 'object' && contentData !== null) {
-              row['content'] = contentData.content || values[idx];
-              if (contentData.imagePath) row['imagePath'] = contentData.imagePath;
-              if (contentData.filePath) row['filePath'] = contentData.filePath;
-              if (contentData.filename) row['filename'] = contentData.filename;
-              if (contentData.fileType) row['fileType'] = contentData.fileType;
+              newRow['content'] = contentData.content || row[col];
+              if (contentData.imagePath) newRow['imagePath'] = contentData.imagePath;
+              if (contentData.filePath) newRow['filePath'] = contentData.filePath;
+              if (contentData.filename) newRow['filename'] = contentData.filename;
+              if (contentData.fileType) newRow['fileType'] = contentData.fileType;
             } else {
-              row['content'] = values[idx];
+              newRow['content'] = row[col];
             }
           } catch (e) {
             // 如果不是JSON，直接使用原始内容
-            row['content'] = values[idx];
+            newRow['content'] = row[col];
           }
         } else {
-          row[col] = values[idx];
+          newRow[col] = row[col];
         }
       });
-      return row;
+      return newRow;
     });
     
     console.log('第一条消息示例:', rows[0]);
@@ -405,22 +403,16 @@ function getAllGrades() {
 
 function getSubjectsByGrade(gradeId) {
   try {
-    const result = db.exec(`SELECT * FROM subjects WHERE grade_id = ${gradeId}`);
+    // 使用参数化查询避免SQL注入
+    const stmt = db.prepare('SELECT * FROM subjects WHERE grade_id = ?');
+    const result = stmt.all({ 1: gradeId });
+    stmt.free();
     
-    if (result.length === 0 || result[0].values.length === 0) {
+    if (result.length === 0) {
       return Promise.resolve([]);
     }
     
-    const columns = result[0].columns;
-    const rows = result[0].values.map(values => {
-      const row = {};
-      columns.forEach((col, idx) => {
-        row[col] = values[idx];
-      });
-      return row;
-    });
-    
-    return Promise.resolve(rows);
+    return Promise.resolve(result);
   } catch (err) {
     return Promise.reject(err);
   }
@@ -428,20 +420,16 @@ function getSubjectsByGrade(gradeId) {
 
 function getGradeById(id) {
   try {
-    const result = db.exec(`SELECT * FROM grades WHERE id = ${id}`);
+    // 使用参数化查询避免SQL注入
+    const stmt = db.prepare('SELECT * FROM grades WHERE id = ?');
+    const result = stmt.getAsObject({ 1: id });
+    stmt.free();
     
-    if (result.length === 0 || result[0].values.length === 0) {
+    if (!result) {
       return Promise.resolve(undefined);
     }
     
-    const columns = result[0].columns;
-    const values = result[0].values[0];
-    const row = {};
-    columns.forEach((col, idx) => {
-      row[col] = values[idx];
-    });
-    
-    return Promise.resolve(row);
+    return Promise.resolve(result);
   } catch (err) {
     return Promise.reject(err);
   }
@@ -449,20 +437,16 @@ function getGradeById(id) {
 
 function getGradeByName(name) {
   try {
-    const result = db.exec(`SELECT * FROM grades WHERE name = '${name.replace(/'/g, "''")}'`);
+    // 使用参数化查询避免SQL注入
+    const stmt = db.prepare('SELECT * FROM grades WHERE name = ?');
+    const result = stmt.getAsObject({ 1: name });
+    stmt.free();
     
-    if (result.length === 0 || result[0].values.length === 0) {
+    if (!result) {
       return Promise.resolve(undefined);
     }
     
-    const columns = result[0].columns;
-    const values = result[0].values[0];
-    const row = {};
-    columns.forEach((col, idx) => {
-      row[col] = values[idx];
-    });
-    
-    return Promise.resolve(row);
+    return Promise.resolve(result);
   } catch (err) {
     return Promise.reject(err);
   }
